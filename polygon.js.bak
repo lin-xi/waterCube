@@ -1,0 +1,423 @@
+
+var Polygon = (function(){
+	var RADIUS = 140, RANGE = RADIUS/2,  LEVEL=[0, 6, 6, 6, 6, 6];
+	function Polygon(node, func){
+		this.node = node;
+		this.callback = func;
+
+		this.cache = {};
+		this._init();     //初始化，在层范围内随机生成点
+		this._drawLine(); //连接点，非边缘的点最少4条线，最多六条
+		//this._drawHexagon(); //计算出原始六边形的每相邻两条连心线的中垂线的交点，并将这些焦点连接成凸六边形
+		//this._joinInterSection(); //连接已经计算出的交点
+		this._finish();
+	}
+
+	$.extend(Polygon.prototype, {
+		/**
+		 *初始化点
+		 */
+		_init: function(){
+			var self = this, g = self.cache;
+			var w = $(window).width(), h = $(window).height();
+
+			self.paper = Raphael(self.node, w, h);
+			paper = self.paper;
+
+			$('#'+self.node).hide();
+
+			g.level = 1;
+			g.points = []; //点
+			g.intersectionLevel = -1;
+
+			g.intersection = []; //交点
+			g.cacheIntersection = []; //交点缓存
+
+			var n1 = Math.floor(w/RADIUS);
+			var pathbotoom = 'M0,'+h+' L'+w+','+h;
+			paper.path(pathbotoom);
+
+			for(var i=1; i<=n1; i++){
+				var r = i*RADIUS;
+				//var circle1 = 'M'+r+',0C0,'+r+'Z';
+				var circle1 = self._getCircletoPath(0, h/2, r);
+				paper.path(circle1).attr({'stroke': "#cccccc"});
+
+				var isdots = Raphael.pathIntersection(circle1, pathbotoom);
+				var rad;
+				if(isdots.length == 1){
+					if(g.intersectionLevel < 0){
+						g.intersectionLevel = i;
+						for(var j=i; j<LEVEL.length; j++){
+							LEVEL[j] = 6;
+						}
+					}
+					rad = 2*Math.atan((isdots[0].y-h/2)/isdots[0].x);
+				}else{
+					rad = Math.PI;
+				}
+				var dots = self._randomDot(i, rad, h);
+				g.points.push(dots);
+
+				for(var j=0, jj=dots.length; j<jj; j++){
+					var dot = dots[j];
+					paper.circle(dot.x, dot.y, 6).attr({'fill': "#996633", 'stroke': "#cccccc"});
+				}
+				g.level++;
+			}
+		},
+		/**
+		 *绘制各种连线
+		 */
+		_drawLine: function(){
+
+			var self = this, paper = self.paper, g = self.cache, points = g.points, section = g.intersection;
+			var level_path, adjacent_path, diagonal_path;
+			//g.intersectionLevel = 1;
+			for(var i=g.intersectionLevel - 1, ii=points.length; i<ii; i++){
+				var item = points[i];
+				var sec=[];
+				for(var j=0, jj=item.length; j<jj; j++){
+
+					if(i<ii-1 && j<jj-1){
+
+						var itemn = points[i+1];
+						var p = item[j], pn = item[j+1], pp = itemn[j], ppn = itemn[j+1];
+
+						//连接相同层上的点
+						level_path = 'M'+p.x +' '+p.y+'L'+pn.x +' '+pn.y;
+						paper.path(level_path).attr({'stroke': "#e0e0e0"});
+
+						//连接相邻层的对角点
+						diagonal_normal1_m = 'M'+p.x +' '+p.y+'L'+ppn.x +' '+ppn.y;
+						paper.path(diagonal_normal1_m).attr({'stroke': "#e0e0e0"});
+
+						//连接相邻层的对角点
+						diagonal_path_p = 'M'+pn.x +' '+pn.y+'L'+pp.x +' '+pp.y;
+						paper.path(diagonal_path_p).attr({'stroke': "#e0e0e0"});
+
+						var isdots1 = Raphael.pathIntersection(diagonal_normal1_m, diagonal_path_p);
+						if(isdots1.length == 1){
+							paper.circle(isdots1[0].x, isdots1[0].y, 6).attr({'fill': "#996633", 'stroke': "#cccccc"});
+							sec.push({x: isdots1[0].x, y: isdots1[0].y});
+						}
+						
+					}
+				}
+				section.push(sec);
+			}
+
+			for(var i=0, ii=section.length; i<ii; i++){
+				var item = section[i];
+				for(var j=0, jj=item.length-1; j<jj; j++){
+					var p = item[j], pn = item[j+1];
+					var level_path = 'M'+p.x +' '+p.y+'L'+pn.x +' '+pn.y;
+					paper.path(level_path).attr({'stroke': "#e0e0e0"});
+				}
+			}
+		},
+		/**
+		 *计算出六边形的每相邻两条连心线的中垂线的交点，并将这些焦点连接成凸六边形
+		 */
+		_drawHexagon: function(){
+			var self = this, paper = self.paper, g = self.cache, points = g.points, section = g.intersection, cacheSection = g.cacheIntersection;
+
+			var l1_normal, l2_normal, t1_normal, t2_normal, r1_normal, r2_normal;
+			var l1_l2, l1_t1, t1_r1, r1_r2, r2_t2, t2_l2;
+
+			for(var i=0, ii=section.length; i<ii; i++){
+				var item = section[i];
+				var cacheDots = [];
+				for(var j=0, jj=item.length; j<jj; j++){
+					if(i<ii-2 && j<jj-1){
+					//if(i==0 && j==0){
+						var itemn = points[g.intersectionLevel+i], itemnn = section[i+1];
+						var l1 = item[j], l2 = item[j+1], t1 = itemn[j], c=itemn[j+1], t2 = itemn[j+2], r1 = itemnn[j], r2=itemnn[j+1];
+						
+						//画同一层连线上的法线
+						var angle = Raphael.angle(l1.x, l1.y, c.x, c.y);
+						var	rad = Math.PI/2 - Raphael.rad(angle);
+						var center = {x:(c.x+l1.x)/2, y:(c.y+l1.y)/2};
+						var ps = self._lineFormula(rad, center, RADIUS*1.5);
+						l1_normal = 'M'+ps[0].x +' '+ps[0].y+'L'+ps[1].x +' '+ps[1].y;
+						//paper.path(l1_normal).attr({'stroke': "#000000"});
+
+						angle = Raphael.angle(t1.x, t1.y, c.x, c.y);
+						rad = Math.PI/2 - Raphael.rad(angle);
+						center = {x:(c.x+t1.x)/2, y:(c.y+t1.y)/2};
+						ps = self._lineFormula(rad, center, RADIUS*1.5);
+						t1_normal = 'M'+ps[0].x +' '+ps[0].y+'L'+ps[1].x +' '+ps[1].y;
+						// paper.path(t1_normal).attr({'stroke': "#000000"});
+
+						angle = Raphael.angle(r1.x, r1.y, c.x, c.y);
+						rad = Math.PI/2 - Raphael.rad(angle);
+						center = {x:(c.x+r1.x)/2, y:(c.y+r1.y)/2};
+						ps = self._lineFormula(rad, center, RADIUS*1.5);
+						r1_normal = 'M'+ps[0].x +' '+ps[0].y+'L'+ps[1].x +' '+ps[1].y;
+						//paper.path(r1_normal).attr({'stroke': "#000000"});
+
+						angle = Raphael.angle(r2.x, r2.y, c.x, c.y);
+						rad = Math.PI/2 - Raphael.rad(angle);
+						center = {x:(c.x+r2.x)/2, y:(c.y+r2.y)/2};
+						ps = self._lineFormula(rad, center, RADIUS*1.5);
+						r2_normal = 'M'+ps[0].x +' '+ps[0].y+'L'+ps[1].x +' '+ps[1].y;
+
+						angle = Raphael.angle(t2.x, t2.y, c.x, c.y);
+						rad = Math.PI/2 - Raphael.rad(angle);
+						center = {x:(c.x+t2.x)/2, y:(c.y+t2.y)/2};
+						ps = self._lineFormula(rad, center, RADIUS*1.5);
+						t2_normal = 'M'+ps[0].x +' '+ps[0].y+'L'+ps[1].x +' '+ps[1].y;
+						//paper.path(t2_normal).attr({'stroke': "#000000"});
+
+						angle = Raphael.angle(l2.x, l2.y, c.x, c.y);
+						rad = Math.PI/2 - Raphael.rad(angle);
+						center = {x:(c.x+l2.x)/2, y:(c.y+l2.y)/2};
+						ps = self._lineFormula(rad, center, RADIUS*1.5);
+						l2_normal = 'M'+ps[0].x +' '+ps[0].y+'L'+ps[1].x +' '+ps[1].y;
+						//paper.path(l2_normal).attr({'stroke': "#000000"});
+
+						l1_l2 = self._getIntersection(l2_normal, l1_normal);
+						if(l1_l2){
+							paper.circle(l1_l2.x, l1_l2.y, 2).attr({'fill': "#000000", 'stroke': "#cccccc"});
+						}
+						l1_t1 = self._getIntersection(l1_normal, t1_normal);
+						if(l1_t1){
+							paper.circle(l1_t1.x, l1_t1.y, 2).attr({'fill': "#000000", 'stroke': "#cccccc"});
+						}
+						t1_r1 = self._getIntersection(t1_normal, r1_normal);
+						if(t1_r1){
+							paper.circle(t1_r1.x, t1_r1.y, 2).attr({'fill': "#000000", 'stroke': "#cccccc"});
+						}
+						r1_r2 = self._getIntersection(r1_normal, r2_normal);
+						if(r1_r2){
+							paper.circle(r1_r2.x, r1_r2.y, 2).attr({'fill': "#000000", 'stroke': "#cccccc"});
+						}
+						r2_t2 = self._getIntersection(r2_normal, t2_normal);
+						if(r2_t2){
+							paper.circle(r2_t2.x, r2_t2.y, 2).attr({'fill': "#000000", 'stroke': "#cccccc"});
+						}
+						t2_l2 = self._getIntersection(l2_normal, t2_normal);
+						if(t2_l2){
+							paper.circle(t2_l2.x, t2_l2.y, 2).attr({'fill': "#000000", 'stroke': "#cccccc"});
+						}
+
+						var cacheDot = self._drawHexagonFromPoints(l1_l2, l1_t1, t1_r1, r1_r2, r2_t2, t2_l2);
+						cacheDots.push([l1_l2, r1_r2]);
+					}
+				}
+				if(cacheDots.length > 0){
+					cacheSection.push(cacheDots);
+				}
+			}
+		},
+		/**
+		 *连接已经计算出的交点
+		 */
+		_joinInterSection: function(){
+		 	var self = this, paper = self.paper, cacheSection = self.cache.cacheIntersection;
+		 
+		 	for(var i=0, ii=cacheSection.length-1; i<ii; i++){
+				var item = cacheSection[i], itemn = cacheSection[i+1];
+				for(var j=0, jj=item.length; j<jj; j++){
+					var p = item[j], pn = itemn[j];
+					var level_path = 'M'+p[1].x +' '+p[1].y+'L'+pn[0].x +' '+pn[0].y;
+					paper.path(level_path).attr({'stroke': "#000000"});
+				}
+			}
+		},
+		_finish: function(){
+			var self = this;
+			$('#'+self.node).show();
+			self.callback();
+		},
+		/**
+		 *获取两条直线的交点
+		 *@param theline1ta 斜角
+		 *@param point {x:200, y:300} 线段的中心点
+		 *@param l 半径
+		 */
+		_drawHexagonFromPoints: function(p1, p2, p3, p4, p5, p6){
+			var self = this, paper = self.paper;
+			var args = [];
+
+			for(var i=0, ii=arguments.length; i<ii; i++){
+				var obj = {};
+				obj.label = i;
+				obj.x = p1.x;
+				obj.y = p1.y;
+				args.push(obj);
+			}
+			args.sort(function(p, n){
+				return p.y - n.y;
+			});
+			var a1 = args.slice(0, args.length/2);
+			a1.sort(function(p, n){
+				return p.x-n.x;
+			});
+			var a2 = args.slice(args.length/2, args.length);
+			a2.sort(function(p, n){
+				return n.x-p.x;
+			});
+			var a3 = a1.concat(a2);
+
+			var path = "", first = 0;
+			for(var i=0; i<a3.length; i++){
+				console.log(a3[i].label);
+				if(a3[i].label<= i){
+					if(first == 0){
+						path += 'M'+ a3[i].x +' '+ a3[i].y;
+					}else{
+						path += 'L'+ a3[i].x +' '+ a3[i].y;
+					}
+					first++;
+				}else{
+					console.log('放弃 p'+a3[i].label);
+				}
+			}
+			path += 'Z';
+
+			/*
+			var args = [];
+			for(var i=0, ii=arguments.length; i<ii; i++){
+				args.push(arguments[i]);
+			}
+			args.sort(function(p, n){
+				return p.y - n.y;
+			});
+
+			var a1 = args.slice(0, args.length/2);
+			a1.sort(function(p, n){
+				return p.x-n.x;
+			});
+			var a2 = args.slice(args.length/2, args.length);
+			a2.sort(function(p, n){
+				return n.x-p.x;
+			});
+			var a3 = a1.concat(a2);
+
+			var path = "";
+			for(var i=0, ii=a3.length; i<ii; i++){
+				if(i == 0){
+					path += 'M'+ a3[i].x +' '+ a3[i].y;
+				}else{
+					path += 'L'+ a3[i].x +' '+ a3[i].y;
+				}
+			}
+			path += 'Z';
+			*/
+
+			var shape = paper.path(path).attr({fill: '#fff', 'stroke': "#000000", 'fill-opacity': 0.5});
+
+			shape.mouseover(function () {
+				shape.stop().animate({'fill': '#996633', 'fill-opacity': 1}, 500, "elastic");
+			}).mouseout(function () {
+				shape.stop().animate({'fill': '#ffffff', 'fill-opacity': 0.5}, 500, "elastic");
+			});
+		},
+		/**
+		 *获取两条直线的交点
+		 *@param theline1ta 斜角
+		 *@param point {x:200, y:300} 线段的中心点
+		 *@param l 半径
+		 */
+		_getIntersection: function(line1, line2){
+			var isdots = Raphael.pathIntersection(line1, line2);
+			if(isdots.length == 1){
+				paper.circle(isdots[0].x, isdots[0].y, 2).attr({'fill': "#000000", 'stroke': "#cccccc"});
+				return {x: isdots[0].x, y: isdots[0].y};
+			}
+		},
+		/**
+		 *线段方程, 返回指定长度线段的两个点
+		 *@param theta 斜角
+		 *@param point {x:200, y:300} 线段的中心点
+		 *@param l 半径
+		 */
+		_lineFormula: function(theta, point, l){
+			var difx = l/2*Math.cos(theta),
+				dify = l/2*Math.sin(theta);
+			var p1 = {x: point.x-difx, y:point.y+dify},
+				p2 = {x: point.x+difx, y:point.y-dify};
+			return [p1, p2];
+		},
+		/**
+		 *将圆转化成路径
+		 *@param x 圆心坐标x
+		 *@param y 圆心坐标x
+		 *@param r 半径
+		 */
+		_getCircletoPath: function(x, y, r){
+	       var s = "M";
+	       s = s + "" + (x) + "," + (y-r) + "A"+r+","+r+",0,1,1,"+(x-0.1)+","+(y-r);
+	       return s;
+	    },
+		/**
+		 *生成随机数，大于0，小于半径的一半
+		 */
+		_randomRadius: function(){
+			return Math.random()*RANGE;
+		},
+		/**
+		 *随机生成角度，
+		 *@param index 点的索引，标记是一层中的第几个点
+		 *@param count 点的总数
+		 *@param rad 弧度
+		 */
+		_randomTheta: function(index, count, rad){
+			var per = rad/count;
+			if(index == 1){
+				return rad/2 - (index-1)*per - per/4;
+			}else{
+				return rad/2 - (index-1)*per - (1 + Math.random())*(per/2);
+			}
+			//return rad/2 - (index-1)*per - per/2;
+		},
+		/**
+		 *随机生成坐标点
+		 *@param index 点的索引，标记是一层中的第几个点
+		 *@param rad 弧度
+		 *@param h 画布高
+		 */
+		_randomDot: function(index, rad, h){
+			var self = this, g = self.cache;
+
+			var n2 = LEVEL[g.level>4?5:g.level], r = (index-1)*RADIUS +  RANGE;
+			var result = [];
+
+			for(var i=1; i<=n2; i++){
+				var r1= r + self._randomRadius(),
+					theta1 = self._randomTheta(i, n2, rad);
+
+				var dot = {}
+				dot.x = r1*Math.cos(theta1);
+				dot.y = h/2-r1*Math.sin(theta1);
+				
+				result.push(dot);
+			}
+
+			return result;
+			/*
+			if(g.level == 1){
+				//第一层手动调整
+				return [{x: 20.46936133751194, y: 57.17920685758463},
+				{x: 28.30257690655895, y: 178.54558783417698},
+				{x: 52.49309320377785, y: 293.0657558052382},
+				{x: 20.6702410354811, y: 380.35139057860573},
+				{x: 48.75367509168288, y: 470.2504568986198},
+				{x: 10.13072809706564, y: 592.6084221295916}]
+			}else if(g.level == 2){
+				//第二层手动调整
+				return [{x: 140.46936133751194, y: 57.17920685758463},
+				{x: 178.30257690655895, y: 198.54558783417698},
+				{x: 152.49309320377785, y: 293.0657558052382},
+				{x: 190.6702410354811, y: 380.35139057860573},
+				{x: 148.75367509168288, y: 470.2504568986198},
+				{x: 150.13072809706564, y: 582.6084221295916}]
+			}else{
+				return result;
+			}
+			*/
+		}
+	});
+	return Polygon;
+})();
