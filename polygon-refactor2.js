@@ -22,6 +22,8 @@ var Polygon = (function(){
 			var self = this, g = self.cache;
 			var node = $('#'+self.node);
 			var w = node.width(), h = node.height();
+			g.width = w; 
+			g.height = h;
 
 			self.paper = Raphael(self.node, w, h);
 			paper = self.paper;
@@ -36,12 +38,12 @@ var Polygon = (function(){
 
 			for(var i=0; i<=SEGMENT; i++){
 				var sh = i*n2, h_line = 'M0 '+sh+' L'+w+' '+sh;
-				//paper.path(h_line).attr({'stroke': "#cccccc"});
+				// paper.path(h_line).attr({'stroke': "#cccccc"});
 			}
 
 			for(var i=0; i<=n1+1; i++){
 				var sw = (i-1)*MAGNITUDE, v_line = 'M'+sw+' 0L'+sw+' '+h;
-				//paper.path(v_line).attr({'stroke': "#cccccc"});
+				// paper.path(v_line).attr({'stroke': "#cccccc"});
 			}
 
 			var dots = self._randomDot(w, h);
@@ -119,13 +121,20 @@ var Polygon = (function(){
 			for(var i=0, ii=points.length; i<ii-1; i++){
 				var item = points[i];
 				var vert1 = [], vert2 = [];
+
 				for(var j=0, jj=item.length; j<jj; j++){
 					var itemn = points[i+1], itemnn= section[i];
 					if(j<jj-1){
 						var l1=item[j], l2=item[j+1], l3=itemn[j], l4=itemn[j+1], t1=itemnn[j];
-						vert1.push(doProcess(l1, l2, t1));
 						if(j==0){
-							vert2.push(doProcess(l1, l3, t1));
+							vert1.push(self._randomEdgeDot(i, 0));
+							vert2.push(self._randomEdgeDot(i, 1));
+						}
+						if(i==0){
+							// vert1.push(doProcess(l1, l2, t1));
+							vert1.push(self._randomEdgeDot(j, 4));
+						}else{
+							vert1.push(doProcess(l1, l2, t1));
 						}
 						vert2.push(doProcess(t1, l3, l4));
 						if(j<jj-2){
@@ -135,12 +144,26 @@ var Polygon = (function(){
 						}
 					}else if(j==jj-1){
 						var l1=item[j], l3=itemn[j], t1=itemnn[j-1];
-						vert1.push(doProcess(l1, l3, t1));
+						//vert1.push(doProcess(l1, l3, t1));
+						vert1.push(self._randomEdgeDot(i, 2));
+						vert2.push(self._randomEdgeDot(i, 3));
 					}
 				}
+
 				vertex.push(vert1);
 				vertex.push(vert2);
+
+				if(i==ii-2){
+					var vert3 = [];
+					for(var j=0, jj=item.length; j<jj; j++){
+						vert3.push(self._randomEdgeDot(j, 5));
+					}
+					vertex.push(vert3);
+				}
 			}
+
+			points = null;
+			section = null;
 
 			function doProcess(d1, d2, d3){
 				var x = (d1.x +d2.x + d3.x)/3, y = (d1.y +d2.y + d3.y)/3;
@@ -148,7 +171,6 @@ var Polygon = (function(){
 				return {x:x, y:y};
 				//self._drawHexagonFromPoints(l1_l2, l1_t1, t1_r1, r1_r2, r2_t2, t2_l2);
 			}
-
 		},
 
 		/**
@@ -196,11 +218,12 @@ var Polygon = (function(){
 			
 			for(var i=0, ii=vertex.length-1; i<ii; i++){
 				var item = vertex[i], itemn = vertex[i+1];
+				/*
 				for(var j=0, jj=item.length-1; j<jj; j++){
 					if(j==0){
 						if((i+1)%2 == 1){
-							var l2 = item[j], t1 = itemn[j], r1 = itemn[j+1], r2=itemn[j+2], t2 = item[j+1];
-							self._lineHexagon(l2, t1, r1, r2, t2);
+							var l1 = item[j+1], l2 = item[j], t1 = itemn[j], r1 = itemn[j+1], r2=itemn[j+2], t2 = item[j+1];
+							self._lineHexagon(l1, l2, t1, r1, r2, t2);
 						}
 					}else if(j<jj-2){
 						if((i+1)%2 == 1){
@@ -223,6 +246,33 @@ var Polygon = (function(){
 						}
 					}
 				}
+				*/
+				if(i != vertex.length-2){
+					for(var j=0, jj=item.length-2; j<jj; j++){
+						if((i+1)%2 == 1){
+							var l1 = item[j+1], l2 = item[j], t1 = itemn[j], r1 = itemn[j+1], r2=itemn[j+2], t2 = item[j+2];
+							self._lineHexagon(l1, l2, t1, r1, r2, t2);
+							j=j+1;
+						}else{
+							if(j<jj-2){
+								var l1 = item[j+2], l2 = item[j+1], t1 = itemn[j+1], r1 = itemn[j+2], r2=itemn[j+3], t2 = item[j+3];
+								self._lineHexagon(l1, l2, t1, r1, r2, t2);
+								j=j+1;
+							}
+						}
+					}
+				}else{
+					var k=0;
+					for(var j=0, jj=item.length-2; j<jj; j++){
+						if((j+1)%2 == 0){
+							var l1 = item[j+1], l2 = item[j], t1 = itemn[k], r1 = itemn[k+1], t2 = item[j+2];
+							self._lineHexagon(l1, l2, t1, r1, t2);
+							j=j+1;
+							k++;
+						}
+					}
+				}
+
 			}
 			
 		},
@@ -416,7 +466,39 @@ var Polygon = (function(){
 				result.push(col);
 			}
 			return result;
+		},
+		/**
+		 *随机生成边缘上的坐标点
+		 *@param level 层
+		 *@param h 画布高
+		 */
+		_randomEdgeDot: function(index, part){
+			var self = this, g = self.cache;
+			var result = [];
+			var n1 = MAGNITUDE, n2 = SEGMENT, n3 = Math.ceil(g.height/SEGMENT);
+
+			function random(scope){
+				return Math.random()*scope;
+			}
+
+			var point;
+			if(part == 0){
+				index == 0 ? point = {x: index*n1 + n1/5 + random(n1/5), y: 0} : point = {x: index*n1 + random(n1/5), y: 0}
+			}else if(part == 1){
+				point = {x: index*n1 + 2*n1/5 + random(n1/5), y: 0};
+			}else if(part == 2){
+				point = {x: index*n1 + random(n1/5), y: g.height};
+			}else if(part == 3){
+				point = {x: index*n1 + 2*n1/5 + random(n1/5), y: g.height};
+			}else if(part == 4){
+				point = {y: index*n3 + random(n3/2), x: 0};
+			}else if(part == 5){
+				point = {y: index*n3 + random(n3/4), x: g.width};
+			}
+
+			return point;
 		}
+
 	});
 	return Polygon;
 })();
