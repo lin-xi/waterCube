@@ -1,7 +1,7 @@
 
 var Polygon = (function(){
 
-	var MAGNITUDE = 200, SEGMENT=6;
+	var MAGNITUDE = 240, SEGMENT=150;
 	function Polygon(node, func){
 		this.node = node;
 		this.callback = func;
@@ -36,8 +36,8 @@ var Polygon = (function(){
 
 			var n1 = Math.floor(w/MAGNITUDE), n2 = Math.floor(h/SEGMENT);
 
-			for(var i=0; i<=SEGMENT; i++){
-				var sh = i*n2, h_line = 'M0 '+sh+' L'+w+' '+sh;
+			for(var i=0; i<=n2; i++){
+				var sh = i*SEGMENT, h_line = 'M0 '+sh+' L'+w+' '+sh;
 				// paper.path(h_line).attr({'stroke': "#cccccc"});
 			}
 
@@ -117,6 +117,12 @@ var Polygon = (function(){
 
 			var l1_normal, l2_normal, t1_normal, t2_normal, r1_normal, r2_normal;
 			var l1_l2, l1_t1, t1_r1, r1_r2, r2_t2, t2_l2;
+			
+			var vert3 = [];
+			for(var j=0, jj=points[0].length; j<jj; j++){
+				vert3.push(self._randomEdgeDot(j, 6));
+			}
+			vertex.push(vert3);
 
 			for(var i=0, ii=points.length; i<ii-1; i++){
 				var item = points[i];
@@ -131,8 +137,8 @@ var Polygon = (function(){
 							vert2.push(self._randomEdgeDot(i, 1));
 						}
 						if(i==0){
-							// vert1.push(doProcess(l1, l2, t1));
-							vert1.push(self._randomEdgeDot(j, 4));
+							vert1.push(doProcess(l1, l2, t1));
+							//vert1.push(self._randomEdgeDot(j, 4));
 						}else{
 							vert1.push(doProcess(l1, l2, t1));
 						}
@@ -149,18 +155,14 @@ var Polygon = (function(){
 						vert2.push(self._randomEdgeDot(i, 3));
 					}
 				}
-
 				vertex.push(vert1);
 				vertex.push(vert2);
-
-				if(i==ii-2){
-					var vert3 = [];
-					for(var j=0, jj=item.length; j<jj; j++){
-						vert3.push(self._randomEdgeDot(j, 5));
-					}
-					vertex.push(vert3);
-				}
 			}
+			var vert4 = [];
+			for(var j=0, jj=points[0].length; j<jj; j++){
+				vert4.push(self._randomEdgeDot(j, 5));
+			}
+			vertex.push(vert4);
 
 			points = null;
 			section = null;
@@ -247,21 +249,20 @@ var Polygon = (function(){
 					}
 				}
 				*/
-				if(i != vertex.length-2){
+				if(i==0){
+					var k=1;
 					for(var j=0, jj=item.length-2; j<jj; j++){
-						if((i+1)%2 == 1){
-							var l1 = item[j+1], l2 = item[j], t1 = itemn[j], r1 = itemn[j+1], r2=itemn[j+2], t2 = item[j+2];
-							self._lineHexagon(l1, l2, t1, r1, r2, t2);
-							j=j+1;
+						if((j+1)%2 == 1){
+							var l1 = item[j], l2 = item[j+1], t1 = itemn[k], r1 = itemn[k+1], t2 = itemn[k+2];
+							self._lineHexagon(l2, l1, t1, r1, t2);
+							k=k+2;
 						}else{
-							if(j<jj-2){
-								var l1 = item[j+2], l2 = item[j+1], t1 = itemn[j+1], r1 = itemn[j+2], r2=itemn[j+3], t2 = item[j+3];
-								self._lineHexagon(l1, l2, t1, r1, r2, t2);
-								j=j+1;
-							}
+							var l1 = item[j], l2 = item[j+1], t1 = itemn[k], r1 = itemn[k+1], t2 = itemn[k+2];
+							self._lineHexagon(l2, l1, t1, r1, t2);
+							k=k+2;
 						}
 					}
-				}else{
+				}else if(i == vertex.length-2){
 					var k=0;
 					for(var j=0, jj=item.length-2; j<jj; j++){
 						if((j+1)%2 == 0){
@@ -271,8 +272,27 @@ var Polygon = (function(){
 							k++;
 						}
 					}
+				}else{
+					for(var j=0, jj=item.length-1; j<jj; j++){
+						if(i%2 == 1){
+							var l1 = item[j+1], l2 = item[j], t1 = itemn[j], r1 = itemn[j+1], r2=itemn[j+2], t2 = item[j+2];
+							self._lineHexagon(l1, l2, t1, r1, r2, t2);
+							j=j+1;
+						}else{
+							if(j==0){
+								var l1 = item[j+1], l2 = item[j], t1 = itemn[j], r1 = itemn[j+1];
+								self._lineHexagon(l1, l2, t1, r1);
+							}else if(j==jj-1){
+								var l1 = item[j+1], l2 = item[j], t1 = itemn[j], r1 = itemn[j+1];
+								self._lineHexagon(l1, l2, t1, r1);
+							}else if(j<jj-1){
+								var l1 = item[j+1], l2 = item[j], t1 = itemn[j], r1 = itemn[j+1], r2=itemn[j+2], t2 = item[j+2];
+								self._lineHexagon(l1, l2, t1, r1, r2, t2);
+								j=j+1;
+							}
+						}
+					}
 				}
-
 			}
 			
 		},
@@ -434,7 +454,7 @@ var Polygon = (function(){
 		_randomDot: function(w, h){
 			var self = this, g = self.cache;
 			var result = [];
-			var n1 = Math.ceil(w/MAGNITUDE), n2 = SEGMENT, n3 = Math.ceil(h/SEGMENT);
+			var n1 = Math.ceil(w/MAGNITUDE), n2 = Math.ceil(h/SEGMENT), n3 = SEGMENT;
 
 			function random(scope){
 				return Math.random()*scope;
@@ -475,7 +495,7 @@ var Polygon = (function(){
 		_randomEdgeDot: function(index, part){
 			var self = this, g = self.cache;
 			var result = [];
-			var n1 = MAGNITUDE, n2 = SEGMENT, n3 = Math.ceil(g.height/SEGMENT);
+			var n1 = MAGNITUDE, n3 = SEGMENT, n2 = Math.ceil(g.height/SEGMENT);
 
 			function random(scope){
 				return Math.random()*scope;
@@ -493,7 +513,9 @@ var Polygon = (function(){
 			}else if(part == 4){
 				point = {y: index*n3 + random(n3/2), x: 0};
 			}else if(part == 5){
-				point = {y: index*n3 + random(n3/4), x: g.width};
+				point = {y: index*n3 + n3/5 + random(n3/6), x: g.width};
+			}else if(part == 6){
+				point = {y: index*n3 + n3/5 + random(n3/6), x: 0};
 			}
 
 			return point;
