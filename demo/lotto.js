@@ -452,12 +452,12 @@ var Lotto = (function($){
 				self._preLoadImage(10, data[index].image, function(id, url, w, h){
 					img = paper.image(url, center.x-w/2, center.y-h/2, w, h).toBack();
 					name = paper.text(center.x, center.y, data[index].name).attr({stroke:'#000', 'stroke-width':'2', fill:'#fff', 'font-family':'微软雅黑', 'font-weight': 'bold', 'font-size': '30'});
-					shape.stop().animate({'fill-opacity': 0}, 100, "elastic");
+					shape.stop().animate({'fill-opacity': 0}, 200, "elastic");
 				});
 			
 				setTimeout(function(){
 					if(len > 1){
-						shape.stop().animate({'fill': '#ffffff', 'fill-opacity': 1}, 100, "elastic", function(){
+						shape.stop().animate({'fill': '#ffffff', 'fill-opacity': 1}, 200, "elastic", function(){
 							if(img){
 								img.remove();
 								name.remove();
@@ -465,7 +465,7 @@ var Lotto = (function($){
 							showOneImage();
 						});
 					}
-				}, 100);
+				}, 200);
 			}
 			
 			showOneImage();
